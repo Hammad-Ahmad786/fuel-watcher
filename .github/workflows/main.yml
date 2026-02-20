@@ -2,7 +2,7 @@ name: Fuel watcher (hourly)
 
 on:
   schedule:
-    - cron: "0 * * * *"   # every hour
+    - cron: "*/5 * * * *"   # every hour
   workflow_dispatch: {}
 
 permissions:
