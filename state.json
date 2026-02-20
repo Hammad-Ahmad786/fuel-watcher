@@ -1,0 +1,20 @@
+{
+  "station_id": "51d4b4bf-a095-1aa0-e100-80009459e03a",
+  "station_meta": {
+    "id": "51d4b4bf-a095-1aa0-e100-80009459e03a",
+    "name": "JET DIETZENBACH ELISABETH-SELBERT-STR. 1",
+    "brand": "JET",
+    "street": "ELISABETH-SELBERT-STR.",
+    "place": "DIETZENBACH",
+    "lat": 50.01281,
+    "lng": 8.79307,
+    "dist": 0.7,
+    "diesel": 1.729,
+    "e5": 1.859,
+    "e10": 1.799,
+    "isOpen": true,
+    "houseNumber": "1",
+    "postCode": 63128
+  },
+  "last_e5": 1.859
+}
