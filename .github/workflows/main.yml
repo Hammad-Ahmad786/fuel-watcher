@@ -33,7 +33,7 @@ jobs:
           HIGH_THRESHOLD: ${{ secrets.HIGH_THRESHOLD }}
           WATCH_FUEL: ${{ secrets.WATCH_FUEL }}
           RADIUS_KM: ${{ secrets.RADIUS_KM }}
-          EMAIL_ON_ANY_CHANGE: "true"
+          EMAIL_ON_ANY_CHANGE: "false"
         run: python watch_fuel_real.py
 
       - name: Commit state
