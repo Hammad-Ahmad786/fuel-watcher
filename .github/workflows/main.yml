@@ -32,7 +32,7 @@ jobs:
           LOW_THRESHOLD: ${{ secrets.LOW_THRESHOLD }}
           HIGH_THRESHOLD: ${{ secrets.HIGH_THRESHOLD }}
           WATCH_FUEL: "e5"
-          RADIUS_KM: "10"
+          RADIUS_KM: "5"
           EMAIL_ON_ANY_CHANGE: "true"
         run: python watch_fuel_real.py
 
