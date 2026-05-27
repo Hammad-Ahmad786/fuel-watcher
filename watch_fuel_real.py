@@ -14,7 +14,7 @@ EMAIL_TO  = os.environ["EMAIL_TO"]
 # FORCE DIESEL ONLY
 FUEL = "diesel"
 
-# NEW DIESEL RULES
+# THRESHOLDS
 LOW_THRESHOLD  = float(os.environ.get("LOW_THRESHOLD", "1.92"))
 HIGH_THRESHOLD = float(os.environ.get("HIGH_THRESHOLD", "1.959"))
 
@@ -26,7 +26,11 @@ RADIUS_KM = float(os.environ.get("RADIUS_KM", "5"))
 
 STATE_FILE = "state.json"
 
-STREET_HINTS = [s.strip().lower() for s in os.environ.get("STREET_HINTS", "elisabeth,selbert").split(",") if s.strip()]
+STREET_HINTS = [
+    s.strip().lower()
+    for s in os.environ.get("STREET_HINTS", "elisabeth,selbert").split(",")
+    if s.strip()
+]
 
 # ---------------- EMAIL ----------------
 def send_email(subject: str, body: str):
@@ -59,7 +63,7 @@ def tk_get(url, params):
     r.raise_for_status()
     return r.json()
 
-# 🚨 JET ONLY FILTER
+# ---------------- JET FILTER ----------------
 def is_jet_station(s):
     name = (s.get("name") or "").lower()
     brand = (s.get("brand") or "").lower()
@@ -108,7 +112,7 @@ def main():
     station_meta = state.get("station_meta")
 
     if not station_id:
-        jet = stations[0]  # closest JET
+        jet = stations[0]
         station_id = jet["id"]
         station_meta = jet
 
@@ -118,13 +122,31 @@ def main():
 
         send_email(
             "JET Diesel Watcher Activated",
-            f"Station: {jet['name']}\nLocation: {jet['street']} {jet.get('houseNumber','')}\n\n{maps(jet)}"
+            f"{jet['name']}\n{jet.get('street','')} {jet.get('houseNumber','')}\n\n{maps(jet)}"
         )
 
     prices = get_prices(station_id)
 
+    # ---------------- LIVE DEBUG (YOU WANTED THIS) ----------------
+    print("\n==============================")
+    print("JET DIESEL LIVE CHECK")
+    print("==============================")
+
+    print("Station:", station_meta.get("name"))
+    print("Diesel:", prices.get("diesel"))
+    print("E5:", prices.get("e5"))
+    print("E10:", prices.get("e10"))
+
+    if prices.get("diesel") is None:
+        print("NO DIESEL PRICE AVAILABLE")
+        return
+
     price_now = float(prices.get("diesel"))
 
+    print("FINAL DIESEL PRICE:", price_now)
+    print("==============================\n")
+
+    # ---------------- STATE ----------------
     last = state.get("last_diesel")
     last = float(last) if last else None
 
