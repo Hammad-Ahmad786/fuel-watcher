@@ -1,5 +1,8 @@
 name: Fuel watcher (every 5 min)
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   schedule:
     - cron: "*/5 * * * *"
@@ -30,12 +33,11 @@ jobs:
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
 
-          # DIESEL RULES
           LOW_THRESHOLD: "1.92"
           HIGH_THRESHOLD: "1.959"
 
-          # SETTINGS
           EMAIL_ON_ANY_CHANGE: "true"
+
           RADIUS_KM: "5"
 
         run: python watch_fuel_real.py
