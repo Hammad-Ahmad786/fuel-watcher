@@ -64,6 +64,7 @@ def is_jet_station(s):
 
 def list_nearby_jet():
     url = "https://creativecommons.tankerkoenig.de/json/list.php"
+
     params = {
         "lat": LAT,
         "lng": LNG,
@@ -74,22 +75,34 @@ def list_nearby_jet():
     }
 
     data = tk_get(url, params)
+
     stations = data.get("stations", [])
+
     return [s for s in stations if is_jet_station(s)]
 
 def get_prices(station_id):
     url = "https://creativecommons.tankerkoenig.de/json/prices.php"
-    params = {"ids": station_id, "apikey": API_KEY}
+
+    params = {
+        "ids": station_id,
+        "apikey": API_KEY
+    }
+
     data = tk_get(url, params)
+
     return data["prices"].get(station_id, {})
 
-# ---------------- FORMAT OUTPUT ----------------
+# ---------------- OUTPUT ----------------
 def fuel_summary(prices):
+    diesel = prices.get("diesel")
+    e5 = prices.get("e5")
+    e10 = prices.get("e10")
+
     return (
         "\nCurrent prices:\n"
-        f"Diesel: {prices.get('diesel')}\n"
-        f"E5: {prices.get('e5')}\n"
-        f"E10: {prices.get('e10')}\n"
+        f"Diesel: {diesel if diesel is not None else 'n/a'}\n"
+        f"E5: {e5 if e5 is not None else 'n/a'}\n"
+        f"E10: {e10 if e10 is not None else 'n/a'}\n"
     )
 
 # ---------------- MAIN ----------------
@@ -99,9 +112,11 @@ def main():
     state = load_state()
 
     stations = list_nearby_jet()
+
     if not stations:
         raise RuntimeError("No JET stations found in radius")
 
+    # ALWAYS CLOSEST JET
     jet = min(stations, key=lambda s: s.get("dist", 999))
 
     station_id = state.get("station_id")
@@ -113,54 +128,64 @@ def main():
 
         state["station_id"] = station_id
         state["station_meta"] = station_meta
+
         save_state(state)
 
         send_email(
             "JET Diesel Watcher Activated",
-            f"{jet['name']}\n{jet.get('street','')} {jet.get('houseNumber','')}\n"
+            f"{jet['name']}\n"
+            f"{jet.get('street','')} {jet.get('houseNumber','')}\n\n"
             f"https://www.google.com/maps/search/?api=1&query={jet['lat']},{jet['lng']}"
         )
 
     prices = get_prices(station_id)
 
     price_raw = prices.get("diesel")
+
     if price_raw is None:
         return
 
     price_now = float(price_raw)
 
     last = state.get("last_diesel")
+
     last = float(last) if last is not None else None
 
     changed = last is not None and price_now != last
 
-    # ---------------- RULES ----------------
+    # ---------------- ALERTS ----------------
     if price_now <= LOW_THRESHOLD:
+
         send_email(
             f"🟢 RUN AND TANK (DIESEL {price_now:.3f}€)",
-            f"DIESEL is LOW\n\n"
-            f"Price: {price_now:.3f} €\n"
-            f"Threshold: {LOW_THRESHOLD}\n"
+            f"DIESEL PRICE IS LOW\n\n"
+            f"Current Diesel: {price_now:.3f} €\n"
+            f"Cheap Threshold: {LOW_THRESHOLD}\n"
             + fuel_summary(prices)
         )
 
     elif price_now >= HIGH_THRESHOLD:
+
         send_email(
             f"🔴 WARNING HIGH PRICE (DIESEL {price_now:.3f}€)",
-            f"DIESEL is HIGH\n\n"
-            f"Price: {price_now:.3f} €\n"
-            f"Threshold: {HIGH_THRESHOLD}\n"
+            f"DIESEL PRICE IS HIGH\n\n"
+            f"Current Diesel: {price_now:.3f} €\n"
+            f"High Threshold: {HIGH_THRESHOLD}\n"
             + fuel_summary(prices)
         )
 
     elif EMAIL_ON_ANY_CHANGE and changed:
+
         send_email(
             f"⛽ DIESEL UPDATE {price_now:.3f}€",
-            f"Changed from {last:.3f} → {price_now:.3f} €\n"
+            f"Diesel changed:\n"
+            f"{last:.3f} € → {price_now:.3f} €\n"
             + fuel_summary(prices)
         )
 
+    # SAVE STATE
     state["last_diesel"] = price_now
+
     save_state(state)
 
 if __name__ == "__main__":
