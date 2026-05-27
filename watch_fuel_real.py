@@ -1,4 +1,7 @@
-import os, json, time, random
+import os
+import json
+import time
+import random
 import smtplib
 from email.message import EmailMessage
 import requests
@@ -8,14 +11,17 @@ API_KEY = os.environ["TANKERKOENIG_API_KEY"]
 
 SMTP_USER = os.environ["SMTP_USER"]
 SMTP_PASS = os.environ["SMTP_PASS"]
-EMAIL_TO  = os.environ["EMAIL_TO"]
+EMAIL_TO = os.environ["EMAIL_TO"]
 
 FUEL = "diesel"
 
-LOW_THRESHOLD  = float(os.environ.get("LOW_THRESHOLD", "1.92"))
+LOW_THRESHOLD = float(os.environ.get("LOW_THRESHOLD", "1.92"))
 HIGH_THRESHOLD = float(os.environ.get("HIGH_THRESHOLD", "1.959"))
 
-EMAIL_ON_ANY_CHANGE = os.environ.get("EMAIL_ON_ANY_CHANGE", "true").lower() == "true"
+EMAIL_ON_ANY_CHANGE = os.environ.get(
+    "EMAIL_ON_ANY_CHANGE",
+    "true"
+).lower() == "true"
 
 LAT = float(os.environ.get("LAT", "50.0173"))
 LNG = float(os.environ.get("LNG", "8.7870"))
@@ -24,24 +30,26 @@ RADIUS_KM = float(os.environ.get("RADIUS_KM", "5"))
 STATE_FILE = "state.json"
 
 # ---------------- EMAIL ----------------
-def send_email(subject: str, body: str):
+def send_email(subject, body):
     msg = EmailMessage()
+
     msg["From"] = SMTP_USER
     msg["To"] = EMAIL_TO
     msg["Subject"] = subject
+
     msg.set_content(body)
 
-    with smtplib.SMTP("smtp.gmail.com", 587) as s:
-        s.starttls()
-        s.login(SMTP_USER, SMTP_PASS)
-        s.send_message(msg)
+    with smtplib.SMTP("smtp.gmail.com", 587) as smtp:
+        smtp.starttls()
+        smtp.login(SMTP_USER, SMTP_PASS)
+        smtp.send_message(msg)
 
 # ---------------- STATE ----------------
 def load_state():
     try:
         with open(STATE_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
-    except FileNotFoundError:
+    except:
         return {}
 
 def save_state(state):
@@ -50,14 +58,14 @@ def save_state(state):
 
 # ---------------- API ----------------
 def tk_get(url, params):
-    r = requests.get(url, params=params, timeout=20)
-    r.raise_for_status()
-    return r.json()
+    response = requests.get(url, params=params, timeout=20)
+    response.raise_for_status()
+    return response.json()
 
-# ---------------- JET FILTER ----------------
-def is_jet_station(s):
-    name = (s.get("name") or "").lower()
-    brand = (s.get("brand") or "").lower()
+def is_jet_station(station):
+    name = (station.get("name") or "").lower()
+    brand = (station.get("brand") or "").lower()
+
     return "jet" in name or "jet" in brand
 
 def list_nearby_jet():
@@ -98,55 +106,95 @@ def fuel_summary(prices):
 
     return (
         "\nCurrent prices:\n"
-        f"Diesel: {diesel if diesel is not None else 'n/a'}\n"
-        f"E5: {e5 if e5 is not None else 'n/a'}\n"
-        f"E10: {e10 if e10 is not None else 'n/a'}\n"
+        f"Diesel: {diesel}\n"
+        f"E5: {e5}\n"
+        f"E10: {e10}\n"
     )
 
 # ---------------- MAIN ----------------
 def main():
-    time.sleep(random.randint(1, 10))
+
+    time.sleep(random.randint(1, 5))
 
     state = load_state()
 
     stations = list_nearby_jet()
 
     if not stations:
-        raise RuntimeError("No JET stations found in radius")
+        raise RuntimeError("No JET stations found")
 
-    jet = min(stations, key=lambda s: s.get("dist", 999))
+    # CLOSEST JET
+    jet = min(
+        stations,
+        key=lambda s: s.get("dist", 999)
+    )
 
-    station_id = state.get("station_id")
-    station_meta = state.get("station_meta")
-
-    if not station_id:
-        station_id = jet["id"]
-        station_meta = jet
-
-        state["station_id"] = station_id
-        state["station_meta"] = station_meta
-
-        save_state(state)
+    station_id = jet["id"]
 
     prices = get_prices(station_id)
 
-    price_raw = prices.get("diesel")
+    diesel_raw = prices.get("diesel")
 
-    if price_raw is None:
+    if diesel_raw is None:
         return
 
-    price_now = float(price_raw)
+    diesel_price = float(diesel_raw)
 
     # ---------------- FORCE TEST EMAIL ----------------
     send_email(
         "✅ PIPELINE TEST EMAIL",
-        "Pipeline is working correctly.\n\n"
-        f"Current Diesel: {price_now:.3f} €\n"
-        + fuel_summary(prices)
+        (
+            "Pipeline is working correctly.\n\n"
+            f"Current Diesel: {diesel_price:.3f} €\n"
+            + fuel_summary(prices)
+        )
     )
 
-    # SAVE STATE
-    state["last_diesel"] = price_now
+    last = state.get("last_diesel")
+
+    if last is not None:
+        last = float(last)
+
+    changed = (
+        last is not None and
+        diesel_price != last
+    )
+
+    # ---------------- ALERTS ----------------
+    if diesel_price <= LOW_THRESHOLD:
+
+        send_email(
+            f"🟢 RUN AND TANK ({diesel_price:.3f}€)",
+            (
+                f"Diesel is CHEAP\n\n"
+                f"Diesel: {diesel_price:.3f} €\n"
+                + fuel_summary(prices)
+            )
+        )
+
+    elif diesel_price >= HIGH_THRESHOLD:
+
+        send_email(
+            f"🔴 HIGH DIESEL PRICE ({diesel_price:.3f}€)",
+            (
+                f"Diesel is EXPENSIVE\n\n"
+                f"Diesel: {diesel_price:.3f} €\n"
+                + fuel_summary(prices)
+            )
+        )
+
+    elif EMAIL_ON_ANY_CHANGE and changed:
+
+        send_email(
+            f"⛽ DIESEL UPDATE {diesel_price:.3f}€",
+            (
+                f"Diesel changed:\n"
+                f"{last:.3f} € → {diesel_price:.3f} €\n"
+                + fuel_summary(prices)
+            )
+        )
+
+    state["last_diesel"] = diesel_price
 
     save_state(state)
 
