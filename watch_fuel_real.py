@@ -10,10 +10,8 @@ SMTP_USER = os.environ["SMTP_USER"]
 SMTP_PASS = os.environ["SMTP_PASS"]
 EMAIL_TO  = os.environ["EMAIL_TO"]
 
-# DIESEL ONLY LOGIC
 FUEL = "diesel"
 
-# THRESHOLDS
 LOW_THRESHOLD  = float(os.environ.get("LOW_THRESHOLD", "1.92"))
 HIGH_THRESHOLD = float(os.environ.get("HIGH_THRESHOLD", "1.959"))
 
@@ -116,7 +114,6 @@ def main():
     if not stations:
         raise RuntimeError("No JET stations found in radius")
 
-    # ALWAYS CLOSEST JET
     jet = min(stations, key=lambda s: s.get("dist", 999))
 
     station_id = state.get("station_id")
@@ -131,13 +128,6 @@ def main():
 
         save_state(state)
 
-        send_email(
-            "JET Diesel Watcher Activated",
-            f"{jet['name']}\n"
-            f"{jet.get('street','')} {jet.get('houseNumber','')}\n\n"
-            f"https://www.google.com/maps/search/?api=1&query={jet['lat']},{jet['lng']}"
-        )
-
     prices = get_prices(station_id)
 
     price_raw = prices.get("diesel")
@@ -147,41 +137,13 @@ def main():
 
     price_now = float(price_raw)
 
-    last = state.get("last_diesel")
-
-    last = float(last) if last is not None else None
-
-    changed = last is not None and price_now != last
-
-    # ---------------- ALERTS ----------------
-    if price_now <= LOW_THRESHOLD:
-
-        send_email(
-            f"🟢 RUN AND TANK (DIESEL {price_now:.3f}€)",
-            f"DIESEL PRICE IS LOW\n\n"
-            f"Current Diesel: {price_now:.3f} €\n"
-            f"Cheap Threshold: {LOW_THRESHOLD}\n"
-            + fuel_summary(prices)
-        )
-
-    elif price_now >= HIGH_THRESHOLD:
-
-        send_email(
-            f"🔴 WARNING HIGH PRICE (DIESEL {price_now:.3f}€)",
-            f"DIESEL PRICE IS HIGH\n\n"
-            f"Current Diesel: {price_now:.3f} €\n"
-            f"High Threshold: {HIGH_THRESHOLD}\n"
-            + fuel_summary(prices)
-        )
-
-    elif EMAIL_ON_ANY_CHANGE and changed:
-
-        send_email(
-            f"⛽ DIESEL UPDATE {price_now:.3f}€",
-            f"Diesel changed:\n"
-            f"{last:.3f} € → {price_now:.3f} €\n"
-            + fuel_summary(prices)
-        )
+    # ---------------- FORCE TEST EMAIL ----------------
+    send_email(
+        "✅ PIPELINE TEST EMAIL",
+        "Pipeline is working correctly.\n\n"
+        f"Current Diesel: {price_now:.3f} €\n"
+        + fuel_summary(prices)
+    )
 
     # SAVE STATE
     state["last_diesel"] = price_now
