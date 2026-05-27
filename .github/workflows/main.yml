@@ -45,13 +45,16 @@ jobs:
       - name: Commit state
         run: |
           if [ -f state.json ]; then
+
             git config user.name "fuel-watcher-bot"
             git config user.email "fuel-watcher-bot@users.noreply.github.com"
 
+            git pull origin main --rebase
+
             git add state.json
 
-            git commit -m "Update state" || exit 0
+            git commit -m "Update state" || echo "No changes"
 
-            git pull --rebase origin main
-            git push
+            git push || echo "Push skipped"
+
           fi
