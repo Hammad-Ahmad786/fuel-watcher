@@ -2,7 +2,6 @@ import os, json, time, random
 import smtplib
 from email.message import EmailMessage
 import requests
-from urllib.parse import quote_plus
 
 # ---------------- CONFIG ----------------
 API_KEY = os.environ["TANKERKOENIG_API_KEY"]
@@ -11,7 +10,7 @@ SMTP_USER = os.environ["SMTP_USER"]
 SMTP_PASS = os.environ["SMTP_PASS"]
 EMAIL_TO  = os.environ["EMAIL_TO"]
 
-# FORCE DIESEL ONLY
+# DIESEL ONLY LOGIC
 FUEL = "diesel"
 
 # THRESHOLDS
@@ -25,12 +24,6 @@ LNG = float(os.environ.get("LNG", "8.7870"))
 RADIUS_KM = float(os.environ.get("RADIUS_KM", "5"))
 
 STATE_FILE = "state.json"
-
-STREET_HINTS = [
-    s.strip().lower()
-    for s in os.environ.get("STREET_HINTS", "elisabeth,selbert").split(",")
-    if s.strip()
-]
 
 # ---------------- EMAIL ----------------
 def send_email(subject: str, body: str):
@@ -82,21 +75,22 @@ def list_nearby_jet():
 
     data = tk_get(url, params)
     stations = data.get("stations", [])
-
     return [s for s in stations if is_jet_station(s)]
 
 def get_prices(station_id):
     url = "https://creativecommons.tankerkoenig.de/json/prices.php"
     params = {"ids": station_id, "apikey": API_KEY}
     data = tk_get(url, params)
-    return data["prices"][station_id]
+    return data["prices"].get(station_id, {})
 
-# ---------------- HELPERS ----------------
-def fmt(x):
-    return "n/a" if x is None else f"{float(x):.3f} €"
-
-def maps(meta):
-    return f"https://www.google.com/maps/search/?api=1&query={meta['lat']},{meta['lng']}"
+# ---------------- FORMAT OUTPUT ----------------
+def fuel_summary(prices):
+    return (
+        "\nCurrent prices:\n"
+        f"Diesel: {prices.get('diesel')}\n"
+        f"E5: {prices.get('e5')}\n"
+        f"E10: {prices.get('e10')}\n"
+    )
 
 # ---------------- MAIN ----------------
 def main():
@@ -108,11 +102,12 @@ def main():
     if not stations:
         raise RuntimeError("No JET stations found in radius")
 
+    jet = min(stations, key=lambda s: s.get("dist", 999))
+
     station_id = state.get("station_id")
     station_meta = state.get("station_meta")
 
     if not station_id:
-        jet = stations[0]
         station_id = jet["id"]
         station_meta = jet
 
@@ -122,33 +117,20 @@ def main():
 
         send_email(
             "JET Diesel Watcher Activated",
-            f"{jet['name']}\n{jet.get('street','')} {jet.get('houseNumber','')}\n\n{maps(jet)}"
+            f"{jet['name']}\n{jet.get('street','')} {jet.get('houseNumber','')}\n"
+            f"https://www.google.com/maps/search/?api=1&query={jet['lat']},{jet['lng']}"
         )
 
     prices = get_prices(station_id)
 
-    # ---------------- LIVE DEBUG (YOU WANTED THIS) ----------------
-    print("\n==============================")
-    print("JET DIESEL LIVE CHECK")
-    print("==============================")
-
-    print("Station:", station_meta.get("name"))
-    print("Diesel:", prices.get("diesel"))
-    print("E5:", prices.get("e5"))
-    print("E10:", prices.get("e10"))
-
-    if prices.get("diesel") is None:
-        print("NO DIESEL PRICE AVAILABLE")
+    price_raw = prices.get("diesel")
+    if price_raw is None:
         return
 
-    price_now = float(prices.get("diesel"))
+    price_now = float(price_raw)
 
-    print("FINAL DIESEL PRICE:", price_now)
-    print("==============================\n")
-
-    # ---------------- STATE ----------------
     last = state.get("last_diesel")
-    last = float(last) if last else None
+    last = float(last) if last is not None else None
 
     changed = last is not None and price_now != last
 
@@ -156,19 +138,26 @@ def main():
     if price_now <= LOW_THRESHOLD:
         send_email(
             f"🟢 RUN AND TANK (DIESEL {price_now:.3f}€)",
-            f"DIESEL is LOW\n\nPrice: {price_now:.3f} €\nThreshold: {LOW_THRESHOLD}"
+            f"DIESEL is LOW\n\n"
+            f"Price: {price_now:.3f} €\n"
+            f"Threshold: {LOW_THRESHOLD}\n"
+            + fuel_summary(prices)
         )
 
     elif price_now >= HIGH_THRESHOLD:
         send_email(
             f"🔴 WARNING HIGH PRICE (DIESEL {price_now:.3f}€)",
-            f"DIESEL is HIGH\n\nPrice: {price_now:.3f} €\nThreshold: {HIGH_THRESHOLD}"
+            f"DIESEL is HIGH\n\n"
+            f"Price: {price_now:.3f} €\n"
+            f"Threshold: {HIGH_THRESHOLD}\n"
+            + fuel_summary(prices)
         )
 
     elif EMAIL_ON_ANY_CHANGE and changed:
         send_email(
             f"⛽ DIESEL UPDATE {price_now:.3f}€",
-            f"Changed from {last:.3f} → {price_now:.3f} €"
+            f"Changed from {last:.3f} → {price_now:.3f} €\n"
+            + fuel_summary(prices)
         )
 
     state["last_diesel"] = price_now
