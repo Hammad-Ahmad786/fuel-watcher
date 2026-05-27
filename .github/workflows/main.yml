@@ -1,10 +1,8 @@
-name: Fuel watcher (hourly)
+name: Fuel watcher (every 5 min)
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 on:
   schedule:
-    - cron: "*/5 * * * *"   # every hour
+    - cron: "*/5 * * * *"
   workflow_dispatch: {}
 
 permissions:
@@ -31,11 +29,15 @@ jobs:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
-          LOW_THRESHOLD: ${{ secrets.LOW_THRESHOLD }}
-          HIGH_THRESHOLD: ${{ secrets.HIGH_THRESHOLD }}
-          WATCH_FUEL: "diesel"
-          RADIUS_KM: "5"
+
+          # DIESEL RULES
+          LOW_THRESHOLD: "1.92"
+          HIGH_THRESHOLD: "1.959"
+
+          # SETTINGS
           EMAIL_ON_ANY_CHANGE: "true"
+          RADIUS_KM: "5"
+
         run: python watch_fuel_real.py
 
       - name: Commit state
@@ -43,7 +45,11 @@ jobs:
           if [ -f state.json ]; then
             git config user.name "fuel-watcher-bot"
             git config user.email "fuel-watcher-bot@users.noreply.github.com"
+
             git add state.json
-            git diff --staged --quiet || git commit -m "Update state"
+
+            git commit -m "Update state" || exit 0
+
+            git pull --rebase origin main
             git push
           fi
