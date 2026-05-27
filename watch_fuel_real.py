@@ -13,6 +13,7 @@ SMTP_USER = os.environ["SMTP_USER"]
 SMTP_PASS = os.environ["SMTP_PASS"]
 EMAIL_TO = os.environ["EMAIL_TO"]
 
+# WATCH DIESEL
 FUEL = "diesel"
 
 LOW_THRESHOLD = float(os.environ.get("LOW_THRESHOLD", "1.92"))
@@ -100,12 +101,13 @@ def get_prices(station_id):
 
 # ---------------- OUTPUT ----------------
 def fuel_summary(prices):
+
     diesel = prices.get("diesel")
     e5 = prices.get("e5")
     e10 = prices.get("e10")
 
     return (
-        "\nCurrent prices:\n"
+        "\nCurrent prices at JET:\n\n"
         f"Diesel: {diesel}\n"
         f"E5: {e5}\n"
         f"E10: {e10}\n"
@@ -140,16 +142,6 @@ def main():
 
     diesel_price = float(diesel_raw)
 
-    # ---------------- FORCE TEST EMAIL ----------------
-    send_email(
-        "✅ PIPELINE TEST EMAIL",
-        (
-            "Pipeline is working correctly.\n\n"
-            f"Current Diesel: {diesel_price:.3f} €\n"
-            + fuel_summary(prices)
-        )
-    )
-
     last = state.get("last_diesel")
 
     if last is not None:
@@ -168,6 +160,7 @@ def main():
             (
                 f"Diesel is CHEAP\n\n"
                 f"Diesel: {diesel_price:.3f} €\n"
+                f"Cheap threshold: {LOW_THRESHOLD:.3f} €\n"
                 + fuel_summary(prices)
             )
         )
@@ -179,6 +172,7 @@ def main():
             (
                 f"Diesel is EXPENSIVE\n\n"
                 f"Diesel: {diesel_price:.3f} €\n"
+                f"High threshold: {HIGH_THRESHOLD:.3f} €\n"
                 + fuel_summary(prices)
             )
         )
