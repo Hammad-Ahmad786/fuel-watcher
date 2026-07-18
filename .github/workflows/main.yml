@@ -40,7 +40,7 @@ jobs:
 
           RADIUS_KM: "5"
 
-        run: python watch_fuel_real.py
+        run: python fuel_monitor.py
 
       - name: Commit state
         run: |
