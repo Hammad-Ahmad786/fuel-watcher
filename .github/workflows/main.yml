@@ -16,7 +16,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -25,45 +26,34 @@ jobs:
 
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: Debug repository
-        run: |
-            pwd
-            ls -la
-            find . -maxdepth 2 -type f
-      - name: Run watcher
+
+      - name: Run fuel watcher
         env:
           TANKERKOENIG_API_KEY: ${{ secrets.TANKERKOENIG_API_KEY }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
 
-          LOW_THRESHOLD: "1.92"
-          HIGH_THRESHOLD: "1.959"
-
-          EMAIL_ON_ANY_CHANGE: "true"
-
+          LOW_THRESHOLD: "2.200"
+          HIGH_THRESHOLD: "2.200"
           RADIUS_KM: "10"
 
+          LAT: "50.0173"
+          LNG: "8.7870"
+
+          STREET_HINTS: "elisabeth,selbert"
         run: python fuel_monitor.py
 
-      - name: Commit state
+      - name: Commit updated state
         run: |
           if [ -f state.json ]; then
-
             git config user.name "fuel-watcher-bot"
             git config user.email "fuel-watcher-bot@users.noreply.github.com"
 
-            # Sync latest remote changes
-            git fetch origin main
-            git reset --hard origin/main
-
-            # Add updated state
             git add state.json
 
-            # Commit only if there are changes
-            git diff --cached --quiet || git commit -m "Update state"
-
-            # Push safely
-            git push origin main || echo "Push skipped"
-
+            if ! git diff --cached --quiet; then
+              git commit -m "Update diesel price state"
+              git push origin HEAD:main
+            fi
           fi
