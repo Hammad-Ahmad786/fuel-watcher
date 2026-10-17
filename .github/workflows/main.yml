@@ -34,7 +34,7 @@ jobs:
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
 
-          LOW_THRESHOLD: "2.200"
+          LOW_THRESHOLD: "2.170"
           HIGH_THRESHOLD: "2.200"
           RADIUS_KM: "5"
 
