@@ -36,7 +36,7 @@ jobs:
 
           LOW_THRESHOLD: "2.200"
           HIGH_THRESHOLD: "2.200"
-          RADIUS_KM: "10"
+          RADIUS_KM: "5"
 
           LAT: "50.0173"
           LNG: "8.7870"
