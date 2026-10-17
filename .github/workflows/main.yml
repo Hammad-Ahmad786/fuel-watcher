@@ -17,10 +17,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -34,14 +34,17 @@ jobs:
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
 
-          LOW_THRESHOLD: "2.170"
+          GOOD_THRESHOLD: "2.170"
           HIGH_THRESHOLD: "2.200"
           RADIUS_KM: "5"
 
           LAT: "50.0173"
           LNG: "8.7870"
-
           STREET_HINTS: "elisabeth,selbert"
+
+          # Manual "Run workflow" always sends an email; scheduled runs send
+          # only on the initial comparison or when a monitored price changes.
+          SEND_EMAIL: ${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}
         run: python fuel_monitor.py
 
       - name: Commit updated state
@@ -49,9 +52,7 @@ jobs:
           if [ -f state.json ]; then
             git config user.name "fuel-watcher-bot"
             git config user.email "fuel-watcher-bot@users.noreply.github.com"
-
             git add state.json
-
             if ! git diff --cached --quiet; then
               git commit -m "Update diesel price state"
               git push origin HEAD:main
