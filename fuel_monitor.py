@@ -1,8 +1,8 @@
-import os
 import json
-import time
+import os
 import random
 import smtplib
+import time
 from email.message import EmailMessage
 from urllib.parse import quote_plus
 
@@ -18,25 +18,24 @@ SMTP_USER = os.environ["SMTP_USER"]
 SMTP_PASS = os.environ["SMTP_PASS"]
 EMAIL_TO = os.environ["EMAIL_TO"]
 
-# Classification thresholds
 GOOD_THRESHOLD = float(os.environ.get("GOOD_THRESHOLD", "2.170"))
 HIGH_THRESHOLD = float(os.environ.get("HIGH_THRESHOLD", "2.200"))
 
 LAT = float(os.environ.get("LAT", "50.0173"))
 LNG = float(os.environ.get("LNG", "8.7870"))
 RADIUS_KM = float(os.environ.get("RADIUS_KM", "5"))
+SEND_EMAIL = os.environ.get("SEND_EMAIL", "false").strip().lower() in {
+    "1", "true", "yes", "on"
+}
 
 STREET_HINTS = [
     value.strip().lower()
-    for value in os.environ.get(
-        "STREET_HINTS", "elisabeth,selbert"
-    ).split(",")
+    for value in os.environ.get("STREET_HINTS", "elisabeth,selbert").split(",")
     if value.strip()
 ]
 
 STATE_FILE = "state.json"
 LIST_URL = "https://creativecommons.tankerkoenig.de/json/list.php"
-
 ALLOWED_BRANDS = ("jet", "aral", "shell")
 
 
@@ -65,17 +64,15 @@ def load_state():
     try:
         with open(STATE_FILE, "r", encoding="utf-8") as file:
             state = json.load(file)
-            return state if isinstance(state, dict) else {}
+        return state if isinstance(state, dict) else {}
     except (OSError, json.JSONDecodeError):
         return {}
 
 
 def save_state(state):
     temporary_file = STATE_FILE + ".tmp"
-
     with open(temporary_file, "w", encoding="utf-8") as file:
         json.dump(state, file, indent=2)
-
     os.replace(temporary_file, STATE_FILE)
 
 
@@ -92,10 +89,8 @@ def list_nearby_stations():
         "type": "all",
         "apikey": API_KEY,
     }
-
     response = requests.get(LIST_URL, params=params, timeout=30)
     response.raise_for_status()
-
     data = response.json()
 
     if not data.get("ok"):
@@ -147,16 +142,11 @@ def station_address(station):
 def maps_link(station):
     latitude = station.get("lat")
     longitude = station.get("lng")
-
     if latitude is not None and longitude is not None:
         query = f"{latitude},{longitude}"
     else:
         query = station_address(station)
-
-    return (
-        "https://www.google.com/maps/search/?api=1&query="
-        + quote_plus(str(query))
-    )
+    return "https://www.google.com/maps/search/?api=1&query=" + quote_plus(str(query))
 
 
 def is_jet(station):
@@ -168,11 +158,7 @@ def is_jet(station):
 def is_allowed_station(station):
     brand = (station.get("brand") or "").strip().lower()
     name = (station.get("name") or "").strip().lower()
-
-    return any(
-        brand == allowed or allowed in name
-        for allowed in ALLOWED_BRANDS
-    )
+    return any(brand == allowed or allowed in name for allowed in ALLOWED_BRANDS)
 
 
 def pick_jet_station(stations, state):
@@ -188,22 +174,16 @@ def pick_jet_station(stations, state):
                 return station
 
     candidates = []
-
     for station in stations:
-        if not is_jet(station):
+        if not is_jet(station) or distance(station) > RADIUS_KM:
             continue
-
-        if distance(station) > RADIUS_KM:
-            continue
-
         street = (station.get("street") or "").lower()
         score = sum(10 for hint in STREET_HINTS if hint in street)
-
         candidates.append((score, -distance(station), station))
 
     if not candidates:
         raise RuntimeError(
-            "JET reference station not found within 5 km. "
+            f"JET reference station not found within {RADIUS_KM:.1f} km. "
             "Check the coordinates and station data."
         )
 
@@ -213,22 +193,16 @@ def pick_jet_station(stations, state):
 
 def valid_diesel_stations(stations):
     result = []
-
     for station in stations:
         if not station.get("id"):
             continue
-
         if distance(station) > RADIUS_KM:
             continue
-
         if not is_allowed_station(station):
             continue
-
         if diesel_price(station) is None:
             continue
-
         result.append(station)
-
     return result
 
 
@@ -237,23 +211,20 @@ def valid_diesel_stations(stations):
 # ============================================================
 
 def classify_station(price, jet_price):
-    # High-price rule takes priority.
+    # Red takes priority at or above the high-price threshold.
     if price >= HIGH_THRESHOLD:
         return "🔴 HIGH PRICE"
 
-    # Green requires BOTH conditions:
-    # 1. Below €2.17/L
-    # 2. Cheaper than JET
+    # Green requires both: below the good threshold and cheaper than JET.
     if price < GOOD_THRESHOLD and price < jet_price:
         return "🟢 GOOD PRICE — CHEAPER THAN JET"
 
-    # Yellow: cheaper than JET, but not below €2.17/L.
+    # Yellow: cheaper than JET, but not eligible for green.
     if price < jet_price:
         return "🟡 CHEAPER THAN JET, BUT ABOVE GOOD THRESHOLD"
 
-    # Not cheaper than JET: never mark it green.
     if price < GOOD_THRESHOLD:
-        return "⚪ BELOW €2.17, BUT NOT CHEAPER THAN JET"
+        return "⚪ BELOW €2.170, BUT NOT CHEAPER THAN JET"
 
     return "⚪ NOT CHEAPER THAN JET"
 
@@ -264,21 +235,18 @@ def classify_station(price, jet_price):
 
 def format_alternative(station, jet_price):
     price = diesel_price(station)
-    status = classify_station(price, jet_price)
-
     return "\n".join([
         station_name(station),
         f"Diesel: {format_price(price)}",
-        f"Status: {status}",
+        f"Status: {classify_station(price, jet_price)}",
         f"Distance: {distance(station):.2f} km",
         f"Address: {station_address(station)}",
         f"Map: {maps_link(station)}",
     ])
 
 
-def build_email(all_stations, jet, alternatives, changed_stations):
+def build_email(jet, alternatives, changed_stations, manual_run=False):
     jet_price = diesel_price(jet)
-
     lines = [
         "DIESEL PRICE COMPARISON",
         "=" * 38,
@@ -298,32 +266,21 @@ def build_email(all_stations, jet, alternatives, changed_stations):
     ]
 
     if not alternatives:
-        lines.append("No Aral or Shell alternatives with diesel prices were found within 5 km.")
+        lines.append("No Aral or Shell alternatives with diesel prices were found within the search radius.")
     else:
         for index, station in enumerate(alternatives, start=1):
-            lines.extend([
-                "",
-                f"STATION {index}",
-                format_alternative(station, jet_price),
-            ])
+            lines.extend(["", f"STATION {index}", format_alternative(station, jet_price)])
 
     if changed_stations:
-        lines.extend([
-            "",
-            "DIESEL PRICE CHANGES",
-            "-" * 38,
-        ])
-
+        lines.extend(["", "DIESEL PRICE CHANGES", "-" * 38])
         for item in sorted(changed_stations, key=lambda entry: entry["new_price"]):
             change = item["new_price"] - item["old_price"]
-
             if change < 0:
                 description = f"Decreased by {abs(change):.3f} €/L"
             elif change > 0:
                 description = f"Increased by {change:.3f} €/L"
             else:
                 description = "Unchanged"
-
             lines.extend([
                 "",
                 item["name"],
@@ -332,13 +289,15 @@ def build_email(all_stations, jet, alternatives, changed_stations):
                 f"Change: {description}",
                 f"Map: {item['map']}",
             ])
+    elif manual_run:
+        lines.extend(["", "Manual test: email sent even though no monitored price change was detected."])
 
     lines.extend([
         "",
         "=" * 38,
         f"Search radius: {RADIUS_KM:.1f} km",
         f"Green: below {GOOD_THRESHOLD:.3f} €/L AND cheaper than JET",
-        f"Yellow: cheaper than JET but not meeting the green rule",
+        "Yellow: cheaper than JET but not meeting the green rule",
         f"Red: {HIGH_THRESHOLD:.3f} €/L or higher",
         "",
         "Only diesel is shown for Aral and Shell.",
@@ -346,7 +305,6 @@ def build_email(all_stations, jet, alternatives, changed_stations):
         "No savings calculations are included.",
         "Prices are supplied by Tankerkönig and can change before arrival.",
     ])
-
     return "\n".join(lines)
 
 
@@ -359,7 +317,6 @@ def main():
 
     state = load_state()
     all_stations = list_nearby_stations()
-
     jet = pick_jet_station(all_stations, state)
 
     if diesel_price(jet) is None:
@@ -370,15 +327,10 @@ def main():
         for station in valid_diesel_stations(all_stations)
         if station.get("id") != jet.get("id")
     ]
-
-    # Show exactly up to three alternatives, ranked by diesel price.
-    alternatives.sort(
-        key=lambda station: (diesel_price(station), distance(station))
-    )
+    alternatives.sort(key=lambda station: (diesel_price(station), distance(station)))
     alternatives = alternatives[:3]
 
     monitored = [jet] + alternatives
-
     previous_prices = state.get("diesel_prices_by_station", {})
     if not isinstance(previous_prices, dict):
         previous_prices = {}
@@ -390,20 +342,16 @@ def main():
     for station in monitored:
         station_id = station["id"]
         price = diesel_price(station)
-
         if price is None:
             continue
 
         current_prices[station_id] = price
-
         if initial_run:
             continue
 
         old_price = previous_prices.get(station_id)
-
         if old_price is None:
             continue
-
         try:
             old_price = float(old_price)
         except (TypeError, ValueError):
@@ -418,30 +366,32 @@ def main():
                 "map": maps_link(station),
             })
 
-    if initial_run or changed_stations:
+    should_send = SEND_EMAIL or initial_run or bool(changed_stations)
+    if should_send:
         body = build_email(
-            all_stations=all_stations,
             jet=jet,
             alternatives=alternatives,
             changed_stations=changed_stations,
+            manual_run=SEND_EMAIL,
         )
 
-        if initial_run:
+        if SEND_EMAIL:
+            subject = f"⛽ Diesel Watcher — Manual Report — JET {diesel_price(jet):.3f} €/L"
+        elif initial_run:
             subject = "⛽ Diesel Watcher — Initial Comparison"
         else:
-            jet_price = diesel_price(jet)
-            subject = (
-                f"⛽ Diesel price changed — JET {jet_price:.3f} €/L"
-            )
+            subject = f"⛽ Diesel price changed — JET {diesel_price(jet):.3f} €/L"
 
         send_email(subject, body)
+        print(f"Email sent to configured recipient. Manual run: {SEND_EMAIL}")
+    else:
+        print("No monitored price changes; email skipped.")
 
     state["station_id"] = jet["id"]
     state["station_meta"] = jet
     state["diesel_prices_by_station"] = current_prices
     state["last_diesel"] = diesel_price(jet)
     state["last_check_unix"] = int(time.time())
-
     save_state(state)
 
     print(f"JET reference: {station_name(jet)}")
@@ -449,6 +399,7 @@ def main():
     print(f"Radius: {RADIUS_KM:.1f} km")
     print(f"Alternative stations shown: {len(alternatives)}")
     print(f"Changed prices: {len(changed_stations)}")
+    print(f"Manual email override enabled: {SEND_EMAIL}")
 
 
 if __name__ == "__main__":
