@@ -42,7 +42,7 @@ jobs:
 
           EMAIL_ON_ANY_CHANGE: "true"
 
-          RADIUS_KM: "5"
+          RADIUS_KM: "10"
 
         run: python fuel_monitor.py
 
