@@ -20,9 +20,9 @@
   "last_diesel": 2.249,
   "diesel_prices_by_station": {
     "51d4b4bf-a095-1aa0-e100-80009459e03a": 2.249,
-    "4efd0707-f338-452a-8895-61b7a15d32cf": 2.239,
+    "4efd0707-f338-452a-8895-61b7a15d32cf": 2.209,
     "beb0204b-ece4-41fc-b8c5-0a66f1f8dcca": 2.259,
     "eed1deb9-4bc7-426f-a7f3-5015e63b7be8": 2.259
   },
-  "last_check_unix": 1793288372
+  "last_check_unix": 1793306048
 }
