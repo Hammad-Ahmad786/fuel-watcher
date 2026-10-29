@@ -9,20 +9,20 @@
     "lat": 50.01281,
     "lng": 8.79307,
     "dist": 0.7,
-    "diesel": 2.239,
-    "e5": 2.059,
-    "e10": 1.999,
+    "diesel": 2.249,
+    "e5": 2.089,
+    "e10": 2.029,
     "isOpen": true,
     "houseNumber": "1",
     "postCode": 63128
   },
   "last_e5": 2.059,
-  "last_diesel": 2.239,
+  "last_diesel": 2.249,
   "diesel_prices_by_station": {
-    "51d4b4bf-a095-1aa0-e100-80009459e03a": 2.239,
-    "4efd0707-f338-452a-8895-61b7a15d32cf": 2.229,
-    "1a9098bb-6078-4dc7-9da8-9120e82866ec": 2.229,
-    "beb0204b-ece4-41fc-b8c5-0a66f1f8dcca": 2.249
+    "51d4b4bf-a095-1aa0-e100-80009459e03a": 2.249,
+    "4efd0707-f338-452a-8895-61b7a15d32cf": 2.239,
+    "beb0204b-ece4-41fc-b8c5-0a66f1f8dcca": 2.259,
+    "eed1deb9-4bc7-426f-a7f3-5015e63b7be8": 2.259
   },
-  "last_check_unix": 1793263955
+  "last_check_unix": 1793288372
 }
