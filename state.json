@@ -12,7 +12,7 @@
     "diesel": 2.089,
     "e5": 1.859,
     "e10": 1.799,
-    "isOpen": true,
+    "isOpen": false,
     "houseNumber": "1",
     "postCode": 63128
   },
@@ -20,9 +20,9 @@
   "last_diesel": 2.089,
   "diesel_prices_by_station": {
     "51d4b4bf-a095-1aa0-e100-80009459e03a": 2.089,
+    "4efd0707-f338-452a-8895-61b7a15d32cf": 2.039,
     "1a9098bb-6078-4dc7-9da8-9120e82866ec": 2.069,
-    "4efd0707-f338-452a-8895-61b7a15d32cf": 2.089,
     "beb0204b-ece4-41fc-b8c5-0a66f1f8dcca": 2.099
   },
-  "last_check_unix": 1795019895
+  "last_check_unix": 1795043167
 }
