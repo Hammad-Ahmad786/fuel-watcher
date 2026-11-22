@@ -12,7 +12,7 @@
     "diesel": 2.039,
     "e5": 1.819,
     "e10": 1.759,
-    "isOpen": true,
+    "isOpen": false,
     "houseNumber": "1",
     "postCode": 63128
   },
@@ -24,5 +24,5 @@
     "eed1deb9-4bc7-426f-a7f3-5015e63b7be8": 2.049,
     "1a9098bb-6078-4dc7-9da8-9120e82866ec": 2.049
   },
-  "last_check_unix": 1795293871
+  "last_check_unix": 1795308084
 }
